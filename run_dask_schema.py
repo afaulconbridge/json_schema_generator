@@ -4,15 +4,15 @@ import argparse
 import csv
 import functools
 import itertools
+import numbers
 
 import dask
 import dask.bag
 # pip install dask[bag] 
 from dask.distributed import Client,LocalCluster
 # pip install dask[distributed] 
-from dask.dot import dot_graph
-# pip install dask[dot] 
 
+ENUM_LIMIT=10
 
 
 class SchemaNode(object):
@@ -20,7 +20,7 @@ class SchemaNode(object):
         self.name = name
 
     def __repr__(self):
-        return "SchemaNode({})".format(self.name)
+        return "{}({})".format(self.__class__.name, self.name)
 
     def to_json(self):
         raise NotImplementedError()
@@ -36,9 +36,6 @@ class SchemaNodeDict(SchemaNode):
         self.children = tuple(children)
         self.is_dict = True
         self.required = frozenset(required)
-
-    def __repr__(self):
-        return "SchemaNodeDict({},{})".format(self.name, self.children)
 
     def to_json(self):
         json = {}
@@ -95,16 +92,18 @@ class SchemaNodeArray(SchemaNode):
         self.children = children
         self.is_array = True
 
-    def __repr__(self):
-        return "SchemaNodeArray({},{})".format(self.name, self.children)
-
     def to_json(self):
         json = {}
         json["type"] = "array"
         if len(self.children) > 0:
-            #TODO use merged children
-            json["items"] = self.children[0].to_json()
+            #merge children together
+            #TODO what if position matters?
+            children_merged = self.children[0]
+            for child in self.children[1:]:
+                children_merged = children_merged.merge(child)
+            json["items"] = children_merged.to_json()
         #TODO minlen maxlen
+        #TODO uniqueItems
         return json
 
     def merge(self, other):
@@ -123,57 +122,80 @@ class SchemaNodeArray(SchemaNode):
                 children.append(self_child)
             else:
                 children.append(self_child.merge(other_child))
+
         return SchemaNodeArray(self.name, children)
 
 class SchemaNodeLeaf(SchemaNode):
-    def __init__(self, name):
+    def __init__(self, name, values, datatype):
+        assert values == None or isinstance(values, collections.abc.Mapping), "values must be mapping"
         super().__init__(name)
-
-    def __repr__(self):
-        return "SchemaNodeLeaf({})".format(self.name)
+        self.values = values
+        self.datatype = datatype
 
     def to_json(self):
         json = {}
-        #TODO infer type
+
+        if self.datatype is not None:
+            json["type"] = self.datatype
+            #if there a few unique values, its an enum
+            #otherwise, its free values and we can't store all
+            if self.values is not None:
+                if len(self.values) == 1:
+                    json["const"] = tuple(self.values)[0]
+                else:
+                    json["enum"] = sorted((x for x in self.values.keys()))
+            elif self.datatype == "string":
+                #TODO min_length
+                #TODO max_length
+                #TODO format 
+                #TODO pattern ?
+                pass
+            elif self.datatype == "integer":
+                #TODO maximum / exclusiveMaximum
+                #TODO minimum / exclusiveMinimum
+                #TODO multipleOf ?
+                pass
+
+            #TODO number / integer
+
         return json
 
     def merge(self, other):
         if other is None:
             return self
-        assert isinstance(other, SchemaNodeLeaf)
+        assert isinstance(other, self.__class__)
         assert self.name == other.name
-        
-        #TODO merge values
-        return self
 
-
-class SchemaNodeString(SchemaNodeLeaf):
-    def __init__(self, name, values):
-        assert isinstance(values, collections.abc.Iterable), "values must be iterable"
-        super().__init__(name)
-        self.values = frozenset(values)
-
-    def __repr__(self):
-        return "SchemaNodeString({})".format(self.name)
-
-    def to_json(self):
-        json = {}
-        json["type"] = "string"
-        #TODO maxLength ?
-        #TODO minLength ?
-        #TODO pattern ?
-        return json
-
-    def merge(self, other):
-        if other is None:
-            return self
-        assert isinstance(other, SchemaNodeString)
-        assert self.name == other.name
+        if other.datatype != self.datatype:
+            child_datatype = None
+        else:
+            child_datatype = self.datatype
         
         # merge values
-        child_values = self.values | other.values
+        if self.values is None or other.values is None:
+            child_values = None
+        else:
+            child_values = dict()
+            for value in self.values:
+                if isinstance(value, str):
+                    assert len(value) > 0
 
-        return SchemaNodeString(self.name, child_values)
+                if value not in child_values:
+                    child_values[value] = 0
+                child_values[value] += 1
+            for value in other.values:
+                if isinstance(value, str):
+                    assert len(value) > 0
+                    
+                if value not in child_values:
+                    child_values[value] = 0
+                child_values[value] += 1
+
+            #if we now have too many different values, don't be enum
+            if len(child_values) > ENUM_LIMIT:
+                child_values = None
+        
+        return self.__class__(self.name, child_values, child_datatype)
 
 def feature_extractor(thing, name=None):
 
@@ -192,9 +214,13 @@ def feature_extractor(thing, name=None):
         children = [feature_extractor(x) for x in thing]
         return SchemaNodeArray(name, children)
     elif isinstance(thing, str):
-        return SchemaNodeString(name, (thing,))
+        return SchemaNodeLeaf(name, {thing:1}, "string")
+    elif isinstance(thing, int):
+        return SchemaNodeLeaf(name, {thing:1}, "integer")
+    elif isinstance(thing, numbers.Number):
+        return SchemaNodeLeaf(name, {thing:1}, "number")
     else:
-        return SchemaNodeLeaf(name)
+        return SchemaNodeLeaf(name, {thing:1}, None)
     #TODO add number/integer
     #TODO add boolean
     #TODO add null ?
@@ -203,22 +229,31 @@ if __name__=="__main__":
     parser = argparse.ArgumentParser(description='JSON to feature CSV')
     parser.add_argument("output")
     parser.add_argument("input", nargs='+')
+    parser.add_argument("--blocksize", action="store", default=None, type=str)
     parser.add_argument("--workers", action="store", default="8", type=int)
+    parser.add_argument("--visualize", action="store", default=None, type=str)
     args = parser.parse_args()
 
     cluster = LocalCluster()
     client = Client(cluster)
     cluster.scale(args.workers)
 
-    items = dask.bag.read_text(args.input)\
+    items = dask.bag.read_text(args.input, blocksize=args.blocksize)\
         .map(json.loads)
 
-    schema_obj = items.map(feature_extractor)\
+    schema_bag = items.map(feature_extractor)\
         .fold(
             binop=SchemaNodeDict.merge, 
             combine=SchemaNodeDict.merge, 
-            initial=SchemaNodeDict(None, [], frozenset()))\
-        .compute()
+            initial=SchemaNodeDict(None, [], frozenset()))
+
+    if args.visualize:
+        #import this here, so if visualize is not used we don't need the requirements
+        from dask.dot import dot_graph
+        # pip install dask[dot] 
+        schema_bag.visualize(args.visualize)
+
+    schema_obj = schema_bag.compute()
 
 
     schema_json = schema_obj.to_json()
