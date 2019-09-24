@@ -1,4 +1,4 @@
-FROM pypy:3
+FROM python:3
 
 WORKDIR /usr/src/app
 
@@ -8,7 +8,3 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 RUN pip install --no-cache-dir .
-
-ENTRYPOINT ["ballgame"]
-
-CMD ["ballgame", "input.csv"]
