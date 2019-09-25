@@ -173,7 +173,7 @@ class SchemaNodeLeaf(SchemaNode):
     def merge(self, other):
         if other is None:
             return self
-        assert isinstance(other, self.__class__)
+        assert isinstance(other, SchemaNodeLeaf)
         assert self.name == other.name
 
         if other.datatype != self.datatype:

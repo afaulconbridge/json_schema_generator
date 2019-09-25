@@ -3,7 +3,7 @@ import simplejson as json
 import json_schema_generator
 
 
-def test_prototype():
+def test_types():
     items = dask.bag.from_sequence([{
             "a": True,
             "b": "Hello world", 
@@ -22,3 +22,28 @@ def test_prototype():
     assert schema["properties"]["e"]["type"] == "null"
     assert schema["properties"]["f"]["type"] == "array"
     assert schema["properties"]["g"]["type"] == "object"
+
+
+def test_combining_types():
+    items = dask.bag.from_sequence([{
+            "a": True,
+            "b": "Hello world", 
+            "c": 1, 
+            "d": 1.5,
+            "e": None,
+        }, {
+            "b": True,
+            "c": "Hello world", 
+            "d": 1, 
+            "e": 1.5,
+            "a": None,
+        }])
+    schema = json_schema_generator.process(items, False)
+    print(json.dumps(schema, indent=2, sort_keys=True))
+    # because we are mixing types there cannot be any type validation
+    assert "type" not in schema["properties"]["a"]
+    assert "type" not in schema["properties"]["b"]
+    assert "type" not in schema["properties"]["c"]
+    assert "type" not in schema["properties"]["d"]
+    assert "type" not in schema["properties"]["e"]
+
