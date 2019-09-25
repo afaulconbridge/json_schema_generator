@@ -13,6 +13,8 @@ ENUM_LIMIT = 10
 
 
 class SchemaNode(object):
+    name = None
+
     def __init__(self, name):
         self.name = name
 
@@ -27,6 +29,10 @@ class SchemaNode(object):
 
 
 class SchemaNodeDict(SchemaNode):
+    children = ()
+    is_dict = True
+    required = frozenset()
+
     def __init__(self, name, children, required):
         super().__init__(name)
         assert isinstance(children, collections.abc.Iterable), \
@@ -220,27 +226,20 @@ def feature_extractor(thing, name=None):
         return SchemaNodeArray(name, children)
     elif isinstance(thing, str):
         return SchemaNodeLeaf(name, {thing: 1}, "string")
+    elif isinstance(thing, bool):
+        return SchemaNodeLeaf(name, {thing: 1}, "boolean")
     elif isinstance(thing, int):
         return SchemaNodeLeaf(name, {thing: 1}, "integer")
     elif isinstance(thing, numbers.Number):
         return SchemaNodeLeaf(name, {thing: 1}, "number")
+    elif thing is None:
+        return SchemaNodeLeaf(name, {thing: 1}, "null")
     else:
-        return SchemaNodeLeaf(name, {thing: 1}, None)
-    # TODO add number/integer
-    # TODO add boolean
-    # TODO add null ?
+        #shouldn't get here so raise an exception in case
+        raise ValueError("Unrecognized thing {}".format(thing))
 
 
-def process(input, blocksize, workers, visualize):
-    cluster = LocalCluster()
-    # here the client registers itself as the default within Dask
-    # TODO explicitly call the client
-    # TODO explicitly allow client to be passed
-    client = Client(cluster)
-    cluster.scale(workers)
-
-    items = dask.bag.read_text(input, blocksize=blocksize)\
-        .map(json.loads)
+def process(items, visualize):
 
     schema_bag = items.map(feature_extractor)\
         .fold(
@@ -276,7 +275,16 @@ def main():
 
     args = parser.parse_args()
 
+    cluster = LocalCluster()
+    # here the client registers itself as the default within Dask
+    # TODO explicitly call the client
+    # TODO explicitly allow client to be passed
+    client = Client(cluster)
+    cluster.scale(args.workers)
+
+    items = dask.bag.read_text(args.input, blocksize=args.blocksize)\
+        .map(json.loads)
+
     with open(args.output, "w") as outfile:
-        schema_json = process(args.input, args.blocksize, args.workers,
-                              args.visualize)
+        schema_json = process(items, args.visualize)
         json.dump(schema_json, outfile, indent=2, sort_keys=True)
