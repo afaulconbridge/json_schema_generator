@@ -14,6 +14,7 @@ msgpack==0.6.1            # via distributed
 partd==1.0.0              # via dask
 psutil==5.6.3             # via distributed
 pyyaml==5.1.1             # via distributed
+simplejson==3.16.0
 six==1.12.0               # via distributed
 sortedcontainers==2.1.0   # via distributed
 tblib==1.4.0              # via distributed

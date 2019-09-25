@@ -1,2 +1,3 @@
 # dot requirement is for visualization only
 dask[bag,distributed,dot]
+simplejson
