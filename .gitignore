@@ -1,5 +1,6 @@
 .vscode
 __pycache__
+*.egg-info
 venv
 dask-worker-space
 **.json

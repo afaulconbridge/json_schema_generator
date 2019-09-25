@@ -15,6 +15,6 @@ setup(
         'visualization':  ["dask[dot]"]
     },
     entry_points={
-        'console_scripts': ['ballgame=json_schema_generator:main'],
+        'console_scripts': ['json_schema_generator=json_schema_generator:main'],
     },
 )
