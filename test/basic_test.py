@@ -47,3 +47,27 @@ def test_combining_types():
     assert "type" not in schema["properties"]["d"]
     assert "type" not in schema["properties"]["e"]
 
+
+def test_enum():
+    items = dask.bag.from_sequence([{
+            "a": "alpha"
+        }, {
+            "a": "ah"
+        }])
+    schema = json_schema_generator.process(items, False)
+    print(json.dumps(schema, indent=2, sort_keys=True))
+    assert schema["properties"]["a"]["type"] == "string"
+    assert "enum" in schema["properties"]["a"]
+    assert ["ah", "alpha"] == schema["properties"]["a"]["enum"]
+
+
+def test_const():
+    items = dask.bag.from_sequence([{
+            "a": "alpha"
+        }, {
+            "a": "alpha"
+        }])
+    schema = json_schema_generator.process(items, False)
+    print(json.dumps(schema, indent=2, sort_keys=True))
+    assert schema["properties"]["a"]["type"] == "string"
+    assert schema["properties"]["a"]["const"] == "alpha"
