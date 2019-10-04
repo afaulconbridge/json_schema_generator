@@ -9,7 +9,88 @@ import dask.bag
 from dask.distributed import Client, LocalCluster
 
 
-ENUM_LIMIT = 10
+ENUM_LIMIT = 5
+
+
+class Schema(object):
+    root = None
+
+    def __init__(self, root):
+        self.root = root
+        self.definitions = set()
+
+    def to_json(self):
+        schema_json = self.root.to_json()
+        # add a label of the metaschema version
+        schema_json["$schema"] = "http://json-schema.org/draft-07/schema#"
+        # if there are any definitions, include them
+        if len(self.definitions) > 0:
+            schema_json["definitions"] = {}
+            for definition in self.definitions:
+                schema_json["definitions"][definition.name] = definition.to_json()
+        return schema_json
+
+    def generate_all_nodes(self):
+        stack = [self.root]
+        stack.extend(self.definitions)
+        while len(stack) > 0:
+            next_node = stack.pop()
+            yield next_node
+            if isinstance(next_node, SchemaNodeDict):
+                for child in next_node.children:
+                    stack.append(child)
+            elif isinstance(next_node, SchemaNodeArray):
+                for child in next_node.children:
+                    stack.append(child)
+
+    def _ref_node_pairs(self):
+        """
+        generator of pairs of nodes that are equal
+        except for name
+
+        these are suitable for replacement with a common reference
+        """
+        # check if there are any nodes that could be reused
+        nodes = tuple(self.generate_all_nodes())
+        for i in range(len(nodes)):
+            for j in range(i+1, len(nodes)):
+                node_a = nodes[i]
+                node_b = nodes[j]
+                # only care about comparing non-leaf nodes
+                # equality includes name but
+                # here we don't care about name, only content
+                if isinstance(node_a, SchemaNodeArray) and \
+                        isinstance(node_b, SchemaNodeArray):
+                    if node_a.children == node_b.children:
+                        yield (node_a, node_b)
+                elif isinstance(node_a, SchemaNodeDict) and \
+                        isinstance(node_b, SchemaNodeDict):
+                    if node_a.required == node_b.required and \
+                            node_a.children == node_b.children:
+                        yield (node_a, node_b)
+
+    def _ref_components(self):
+        """
+        Generate sets of nodes that could be replaced with a single reference.
+        """
+        node_sets = set()
+        for node in self.generate_all_nodes():
+            node_sets.add(frozenset((node,)))
+
+        for node_a, node_b in self._ref_node_pairs():
+            node_set_a = None
+            node_set_b = None
+            for node_set in node_sets:
+                if node_a in node_set:
+                    node_set_a = node_set
+                if node_b in node_set:
+                    node_set_b = node_set
+            if node_set_a is not node_set_b:
+                node_sets.remove(node_set_a)
+                node_sets.remove(node_set_b)
+                node_sets.add(node_set_a.union(node_set_b))
+
+        return frozenset(node_sets)
 
 
 class SchemaNode(object):
@@ -19,7 +100,25 @@ class SchemaNode(object):
         self.name = name
 
     def __repr__(self):
-        return "{}({})".format(self.__class__.name, self.name)
+        return 'SchemaNode({})'.format(
+            self.name)
+
+    def __str__(self):
+        return 'SchemaNode({})'.format(
+            self.name)
+
+    def __eq__(self, other):
+        if not issubclass(other.__class__, self.__class__):
+            return False
+        if self.name != other.name:
+            return False
+        return True
+
+    def __hash__(self):
+        return hash((self.name,))
+
+    def __len__(self):
+        return 1
 
     def to_json(self):
         raise NotImplementedError()
@@ -29,8 +128,7 @@ class SchemaNode(object):
 
 
 class SchemaNodeDict(SchemaNode):
-    children = ()
-    is_dict = True
+    children = tuple()
     required = frozenset()
 
     def __init__(self, name, children, required):
@@ -40,8 +138,32 @@ class SchemaNodeDict(SchemaNode):
         assert isinstance(required, collections.abc.Set), \
             "required must be a set"
         self.children = tuple(children)
-        self.is_dict = True
         self.required = frozenset(required)
+
+    def __eq__(self, other):
+        if not issubclass(other.__class__, self.__class__):
+            return False
+        if self.name != other.name:
+            return False
+        if self.required != other.required:
+            return False
+        if self.children != other.children:
+            return False
+        return True
+
+    def __hash__(self):
+        return hash((self.name, self.required, self.children))
+
+    def __len__(self):
+        return sum((len(x) for x in self.children))
+
+    def __repr__(self):
+        return 'SchemaNodeDict({}, {}, {})'.format(
+            self.name, self.children, self.required)
+
+    def __str__(self):
+        return 'SchemaNodeDict({}, {}, {})'.format(
+            self.name, self.children, self.required)
 
     def to_json(self):
         json = {}
@@ -97,8 +219,30 @@ class SchemaNodeArray(SchemaNode):
         super().__init__(name)
         assert isinstance(children, collections.abc.Iterable), \
             "children must be iterable"
-        self.children = children
-        self.is_array = True
+        self.children = tuple(children)
+
+    def __eq__(self, other):
+        if not issubclass(other.__class__, self.__class__):
+            return False
+        if self.name != other.name:
+            return False
+        if self.children != other.children:
+            return False
+        return True
+
+    def __hash__(self):
+        return hash((self.name, self.children))
+
+    def __len__(self):
+        return sum((len(x) for x in self.children))
+
+    def __repr__(self):
+        return 'SchemaNodeArray({}, {})'.format(
+            self.name, self.children)
+
+    def __str__(self):
+        return 'SchemaNodeArray({}, {})'.format(
+            self.name, self.children)
 
     def to_json(self):
         json = {}
@@ -142,6 +286,28 @@ class SchemaNodeLeaf(SchemaNode):
         super().__init__(name)
         self.values = values
         self.datatype = datatype
+
+    def __eq__(self, other):
+        if not issubclass(other.__class__, self.__class__):
+            return False
+        if self.name != other.name:
+            return False
+        if self.datatype != other.datatype:
+            return False
+        if self.values != other.values:
+            return False
+        return True
+
+    def __hash__(self):
+        return hash((self.name, self.datatype, self.values))
+
+    def __repr__(self):
+        return 'SchemaNodeLeaf({}, {}, {})'.format(
+            self.name, self.values, self.datatype)
+
+    def __str__(self):
+        return 'SchemaNodeLeaf({}, {}, {})'.format(
+            self.name, self.values, self.datatype)
 
     def to_json(self):
         json = {}
@@ -208,6 +374,37 @@ class SchemaNodeLeaf(SchemaNode):
         return self.__class__(self.name, child_values, child_datatype)
 
 
+class SchemaNodeRef(SchemaNode):
+    def __init__(self, name, ref):
+        super().__init__(name)
+        self.ref = ref
+
+    def __eq__(self, other):
+        if not issubclass(other.__class__, self.__class__):
+            return False
+        if self.name != other.name:
+            return False
+        if self.ref != other.ref:
+            return False
+        return True
+
+    def __hash__(self):
+        return hash((self.name, self.ref))
+
+    def __repr__(self):
+        return 'SchemaNodeRef({}, {})'.format(
+            self.name, self.ref)
+
+    def __str__(self):
+        return 'SchemaNodeRef({}, {})'.format(
+            self.name, self.ref)
+
+    def to_json(self):
+        json = {}
+        json["$ref"] = '#/definitions/{}'.format(self.ref)
+        return json
+
+
 def feature_extractor(thing, name=None):
 
     # if its a dict, recurse
@@ -239,7 +436,7 @@ def feature_extractor(thing, name=None):
         raise ValueError("Unrecognized thing {}".format(thing))
 
 
-def process(items, visualize):
+def process_to_schema(items, visualize):
 
     schema_bag = items.map(feature_extractor)\
         .fold(
@@ -255,9 +452,14 @@ def process(items, visualize):
     # this will block until complete
     schema_obj = schema_bag.compute()
 
-    schema_json = schema_obj.to_json()
-    schema_json["$schema"] = "http://json-schema.org/draft-07/schema#"
+    #post process the schema to compute definitions
 
+    return Schema(schema_obj)
+
+
+def process_to_json(items, visualize):
+    schema_obj = process_to_schema(items, visualize)
+    schema_json = schema_obj.to_json()
     return schema_json
 
 
@@ -286,5 +488,5 @@ def main():
         .map(json.loads)
 
     with open(args.output, "w") as outfile:
-        schema_json = process(items, args.visualize)
+        schema_json = process_to_json(items, args.visualize)
         json.dump(schema_json, outfile, indent=2, sort_keys=True)
