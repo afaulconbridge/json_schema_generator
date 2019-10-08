@@ -1,5 +1,3 @@
-import collections.abc
-import numbers
 import argparse
 
 import simplejson as json
@@ -7,48 +5,20 @@ import dask
 import dask.bag
 from dask.distributed import Client, LocalCluster
 
-from .schema import Schema, SchemaNodeDict, SchemaNodeArray, \
+# import everything so it is re-exported
+from .schema import Schema, SchemaNode, SchemaNodeArray, SchemaNodeDict, \
     SchemaNodeLeaf, SchemaNodeRef
 
 
-def feature_extractor(thing, name=None):
+def schema_extractor(thing):
+    return Schema(Schema.feature_extractor(thing))
 
-    # if its a dict, recurse
-    if isinstance(thing, collections.abc.Mapping):
-        children = set()
-        for key in sorted(thing.keys()):
-            child = feature_extractor(thing[key], key)
-            children.add(child)
-        children = frozenset(children)
-        required = frozenset((x.name for x in children))
-        return SchemaNodeDict(name, children, required)
-    # if its a list, iterate
-    # exclude strings because they are iterable by character
-    elif isinstance(thing, collections.abc.Iterable) \
-            and not isinstance(thing, str):
-        children = [feature_extractor(x) for x in thing]
-        return SchemaNodeArray(name, children)
-    elif isinstance(thing, str):
-        return SchemaNodeLeaf(name, [thing], "string")
-    elif isinstance(thing, bool):
-        return SchemaNodeLeaf(name, [thing], "boolean")
-    elif isinstance(thing, int):
-        return SchemaNodeLeaf(name, [thing], "integer")
-    elif isinstance(thing, numbers.Number):
-        return SchemaNodeLeaf(name, [thing], "number")
-    elif thing is None:
-        return SchemaNodeLeaf(name, [thing], "null")
-    else:
-        #shouldn't get here so raise an exception in case
-        raise ValueError("Unrecognized thing {}".format(thing))
 
-def process_to_schema(items, visualize):
+def process_to_schema(dask_bag, visualize):
 
-    schema_bag = items.map(feature_extractor)\
-        .fold(
-            binop=SchemaNodeDict.merge,
-            combine=SchemaNodeDict.merge,
-            initial=SchemaNodeDict(None, frozenset(), frozenset()))
+    schema_bag = dask_bag.map(schema_extractor)\
+        .fold(binop=Schema.merge, combine=Schema.merge,
+              initial=Schema(None))
 
     if visualize:
         # import this here, so if not used we don't need the requirements
@@ -58,15 +28,13 @@ def process_to_schema(items, visualize):
     # this will block until complete
     schema_obj = schema_bag.compute()
 
-    #post process the schema to compute definitions
+    # post process the schema to compute definitions
 
     return Schema(schema_obj)
 
 
-def process_to_json(items, visualize):
-    schema_obj = process_to_schema(items, visualize)
-    schema_json = schema_obj.to_json()
-    return schema_json
+def process_to_json(dask_bag, visualize):
+    return process_to_schema(dask_bag, visualize).to_json()
 
 
 def main():

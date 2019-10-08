@@ -1,10 +1,9 @@
-import itertools
-import collections
-import copy
-import functools
 
-#temp
-import json
+import collections
+import numbers
+import copy
+import itertools
+import functools
 
 ENUM_LIMIT = 5
 
@@ -24,7 +23,8 @@ class Schema(object):
         if len(self.definitions) > 0:
             schema_json["definitions"] = {}
             for definition in self.definitions:
-                schema_json["definitions"][definition.name] = definition.to_json()
+                schema_json["definitions"][definition.name] \
+                    = definition.to_json()
         return schema_json
 
     def generate_all_nodes(self):
@@ -158,6 +158,50 @@ class Schema(object):
                         node.children = tuple(new_children)
 
                 changed = True
+    
+    def merge(self, other):
+        if other is None:
+            return self
+        elif self.root is None and other.root is not None:
+            return other
+        elif self.root is not None and other.root is None:
+            return self
+
+        merged = Schema(self.root.merge(other.root))
+        merged.definitions = self.definitions.union(other.definitions)
+        return merged
+
+    @staticmethod
+    def feature_extractor(thing, name=None):
+
+        # if its a dict, recurse
+        if isinstance(thing, collections.abc.Mapping):
+            children = set()
+            for key in sorted(thing.keys()):
+                child = Schema.feature_extractor(thing[key], key)
+                children.add(child)
+            children = frozenset(children)
+            required = frozenset((x.name for x in children))
+            return SchemaNodeDict(name, children, required)
+        # if its a list, iterate
+        # exclude strings because they are iterable by character
+        elif isinstance(thing, collections.abc.Iterable) \
+                and not isinstance(thing, str):
+            children = [Schema.feature_extractor(x) for x in thing]
+            return SchemaNodeArray(name, children)
+        elif isinstance(thing, str):
+            return SchemaNodeLeaf(name, [thing], "string")
+        elif isinstance(thing, bool):
+            return SchemaNodeLeaf(name, [thing], "boolean")
+        elif isinstance(thing, int):
+            return SchemaNodeLeaf(name, [thing], "integer")
+        elif isinstance(thing, numbers.Number):
+            return SchemaNodeLeaf(name, [thing], "number")
+        elif thing is None:
+            return SchemaNodeLeaf(name, [thing], "null")
+        else:
+            # shouldn't get here so raise an exception in case
+            raise ValueError("Unrecognized thing {}".format(thing))
 
 
 class SchemaNode(object):
@@ -397,8 +441,9 @@ class SchemaNodeArray(SchemaNode):
 @functools.total_ordering
 class SchemaNodeLeaf(SchemaNode):
     def __init__(self, name, values, datatype):
-        assert values is None or isinstance(values, collections.abc.Collection), \
-            "values must be collection or None"
+        assert values is None or isinstance(
+                values, collections.abc.Collection), \
+                "values must be collection or None"
         super().__init__(name)
         if values is None:
             self.values = None
