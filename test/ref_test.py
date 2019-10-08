@@ -1,7 +1,6 @@
 import dask.bag
-import simplejson as json
-from json_schema_generator import SchemaNodeLeaf, SchemaNodeArray, \
-    SchemaNodeDict, SchemaNodeRef, Schema, process_to_schema
+from json_schema_generator import SchemaNodeLeaf, \
+    SchemaNodeDict, Schema, process_to_schema
 
 
 import random
