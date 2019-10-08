@@ -23,7 +23,92 @@ def test_types():
     assert schema["properties"]["f"]["type"] == "array"
     assert schema["properties"]["g"]["type"] == "object"
 
-# TODO test equalities better, fine grained, detailed
+
+# test equalities better, fine grained, detailed
+def test_equal_leaf():
+    a1 = json_schema_generator.SchemaNodeLeaf("a", ["foo"], "string")
+    a2 = json_schema_generator.SchemaNodeLeaf("a", ["foo"], "string")
+    b = json_schema_generator.SchemaNodeLeaf("b", ["foo"], "string")
+    c = json_schema_generator.SchemaNodeLeaf("a", ["bar"], "string")
+    d1 = json_schema_generator.SchemaNodeLeaf("a", [1], "number")
+    d2 = json_schema_generator.SchemaNodeLeaf("a", [1], "integer")
+
+    assert a1 == a1
+    assert a1 == a2
+    assert a1 != b
+    assert a1 != c
+    assert a1 != d1
+    assert a1 != d2
+
+
+def test_equal_ref():
+    a1 = json_schema_generator.SchemaNodeRef("a", "foo")
+    a2 = json_schema_generator.SchemaNodeRef("a", "foo")
+    b = json_schema_generator.SchemaNodeRef("a", "bar")
+    c = json_schema_generator.SchemaNodeRef("b", "foo")
+
+    assert a1 == a1
+    assert a1 == a2
+    assert a1 != b
+    assert a1 != c
+
+
+def test_equal_array():
+    a1 = json_schema_generator.SchemaNodeArray("a", (
+        json_schema_generator.SchemaNodeLeaf(None, ["foo"], "string"),
+        json_schema_generator.SchemaNodeLeaf(None, ["bar"], "string")))
+    a2 = json_schema_generator.SchemaNodeArray("a", (
+        json_schema_generator.SchemaNodeLeaf(None, ["foo"], "string"),
+        json_schema_generator.SchemaNodeLeaf(None, ["bar"], "string")))
+    b = json_schema_generator.SchemaNodeArray("a", (
+        json_schema_generator.SchemaNodeLeaf(None, [1], "integer"),
+        json_schema_generator.SchemaNodeLeaf(None, [2], "integer")))
+    c = json_schema_generator.SchemaNodeArray("b", (
+        json_schema_generator.SchemaNodeLeaf(None, ["foo"], "string"),
+        json_schema_generator.SchemaNodeLeaf(None, ["bar"], "string")))
+    d = json_schema_generator.SchemaNodeArray("a", (
+        json_schema_generator.SchemaNodeLeaf(None, ["foo"], "string"),
+        json_schema_generator.SchemaNodeLeaf(None, ["bar"], "string"),
+        json_schema_generator.SchemaNodeLeaf(None, ["baz"], "string")))
+
+    assert a1 == a1
+    assert a1 == a2
+    assert a1 != b
+    assert a1 != c
+    assert a1 != d
+
+
+def test_equal_dict():
+    a1 = json_schema_generator.SchemaNodeDict("a", (
+        json_schema_generator.SchemaNodeLeaf("foo", ["foo"], "string"),
+        json_schema_generator.SchemaNodeLeaf("bar", ["bar"], "string")),
+        ())
+    a2 = json_schema_generator.SchemaNodeDict("a", (
+        json_schema_generator.SchemaNodeLeaf("foo", ["foo"], "string"),
+        json_schema_generator.SchemaNodeLeaf("bar", ["bar"], "string")),
+        ())
+    b = json_schema_generator.SchemaNodeDict("a", (
+        json_schema_generator.SchemaNodeLeaf("foo", [1], "integer"),
+        json_schema_generator.SchemaNodeLeaf("bar", [2], "integer")),
+        ())
+    c = json_schema_generator.SchemaNodeDict("b", (
+        json_schema_generator.SchemaNodeLeaf("foo", ["foo"], "string"),
+        json_schema_generator.SchemaNodeLeaf("bar", ["bar"], "string")),
+        ())
+    d = json_schema_generator.SchemaNodeDict("a", (
+        json_schema_generator.SchemaNodeLeaf("foo", ["foo"], "string"),
+        json_schema_generator.SchemaNodeLeaf("bar", ["bar"], "string"),
+        json_schema_generator.SchemaNodeLeaf("baz", ["baz"], "string")),
+        ())
+
+    assert a1 == a1
+    assert a1 == a2
+    assert a1 != b
+    assert a1 != c
+    assert a1 != d
+
+    assert len(a1) == 3
+
 
 def test_combining_types():
     items = dask.bag.from_sequence([{
