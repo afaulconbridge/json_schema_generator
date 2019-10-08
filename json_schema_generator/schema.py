@@ -59,12 +59,12 @@ class Schema(object):
                 if isinstance(node_a, SchemaNodeArray) and \
                         isinstance(node_b, SchemaNodeArray):
                     if node_a.children == node_b.children:
-                        yield frozenset((node_a, node_b))
+                        yield sorted((node_a, node_b))
                 elif isinstance(node_a, SchemaNodeDict) and \
                         isinstance(node_b, SchemaNodeDict):
                     if node_a.required == node_b.required and \
                             node_a.children == node_b.children:
-                        yield frozenset((node_a, node_b))
+                        yield sorted((node_a, node_b))
 
     def _ref_components(self):
         """
@@ -171,14 +171,17 @@ class Schema(object):
         merged.definitions = self.definitions.union(other.definitions)
         return merged
 
-    @staticmethod
-    def feature_extractor(thing, name=None):
+    @classmethod
+    def schema_extractor(clazz, thing):
+        return clazz(clazz.feature_extractor(thing))
 
+    @classmethod
+    def feature_extractor(clazz, thing, name=None):
         # if its a dict, recurse
         if isinstance(thing, collections.abc.Mapping):
             children = set()
             for key in sorted(thing.keys()):
-                child = Schema.feature_extractor(thing[key], key)
+                child = clazz.feature_extractor(thing[key], key)
                 children.add(child)
             children = frozenset(children)
             required = frozenset((x.name for x in children))
@@ -187,7 +190,7 @@ class Schema(object):
         # exclude strings because they are iterable by character
         elif isinstance(thing, collections.abc.Iterable) \
                 and not isinstance(thing, str):
-            children = [Schema.feature_extractor(x) for x in thing]
+            children = [clazz.feature_extractor(x) for x in thing]
             return SchemaNodeArray(name, children)
         elif isinstance(thing, str):
             return SchemaNodeLeaf(name, [thing], "string")
@@ -480,7 +483,13 @@ class SchemaNodeLeaf(SchemaNode):
         elif self.datatype > other.datatype:
             return False
 
-        if self.values < other.values:
+        if self.values is None and other.values is not None:
+            return True
+        elif self.values is not None and other.values is None:
+            return False
+        elif self.values is None and other.values is None:
+            pass
+        elif self.values < other.values:
             return True
         elif self.values > other.values:
             return False

@@ -17,7 +17,7 @@ def test_node_pair():
     node_pairs = tuple(schema._ref_node_pairs())
     print(node_pairs)
     assert len(node_pairs) == 1
-    assert node_pairs[0] == frozenset((bar, foo))
+    assert node_pairs[0] == sorted((bar, foo))
 
 
 def test_node_components():

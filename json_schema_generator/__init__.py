@@ -10,27 +10,22 @@ from .schema import Schema, SchemaNode, SchemaNodeArray, SchemaNodeDict, \
     SchemaNodeLeaf, SchemaNodeRef
 
 
-def schema_extractor(thing):
-    return Schema(Schema.feature_extractor(thing))
-
-
 def process_to_schema(dask_bag, visualize):
-
-    schema_bag = dask_bag.map(schema_extractor)\
+    dask_bag = dask_bag.map(Schema.schema_extractor)\
         .fold(binop=Schema.merge, combine=Schema.merge,
               initial=Schema(None))
-
     if visualize:
         # import this here, so if not used we don't need the requirements
         from dask.dot import dot_graph
-        schema_bag.visualize(visualize)
+        dask_bag.visualize(visualize)
 
     # this will block until complete
-    schema_obj = schema_bag.compute()
+    schema = dask_bag.compute()
 
-    # post process the schema to compute definitions
+    # post-process the schema to compute definitions
+    schema.infer_references()
 
-    return Schema(schema_obj)
+    return schema
 
 
 def process_to_json(dask_bag, visualize):
@@ -61,6 +56,8 @@ def main():
     items = dask.bag.read_text(args.input, blocksize=args.blocksize)\
         .map(json.loads)
 
+    schema = process_to_schema(items, args.visualize)
+
     with open(args.output, "w") as outfile:
-        schema_json = process_to_json(items, args.visualize)
+        schema_json = schema.to_json()
         json.dump(schema_json, outfile, indent=2, sort_keys=True)

@@ -13,7 +13,7 @@ def test_types():
             "f": [],
             "g": {}
         }])
-    schema = json_schema_generator.process_to_json(items, False)
+    schema = json_schema_generator.process_to_schema(items, False).to_json()
     print(json.dumps(schema, indent=2, sort_keys=True))
     assert schema["properties"]["a"]["type"] == "boolean"
     assert schema["properties"]["b"]["type"] == "string"
@@ -124,7 +124,7 @@ def test_combining_types():
             "e": 1.5,
             "a": None,
         }])
-    schema = json_schema_generator.process_to_json(items, False)
+    schema = json_schema_generator.process_to_schema(items, False).to_json()
     print(json.dumps(schema, indent=2, sort_keys=True))
     # because we are mixing types there cannot be any type validation
     assert "type" not in schema["properties"]["a"]
@@ -140,7 +140,7 @@ def test_enum():
         }, {
             "a": "ah"
         }])
-    schema = json_schema_generator.process_to_json(items, False)
+    schema = json_schema_generator.process_to_schema(items, False).to_json()
     print(json.dumps(schema, indent=2, sort_keys=True))
     assert schema["properties"]["a"]["type"] == "string"
     assert "enum" in schema["properties"]["a"]
@@ -153,7 +153,7 @@ def test_const():
         }, {
             "a": "alpha"
         }])
-    schema = json_schema_generator.process_to_json(items, False)
+    schema = json_schema_generator.process_to_schema(items, False).to_json()
     print(json.dumps(schema, indent=2, sort_keys=True))
     assert schema["properties"]["a"]["type"] == "string"
     assert schema["properties"]["a"]["const"] == "alpha"
