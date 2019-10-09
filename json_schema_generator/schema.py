@@ -173,38 +173,10 @@ class Schema(object):
 
     @classmethod
     def schema_extractor(clazz, thing):
-        return clazz(clazz.feature_extractor(thing))
-
-    @classmethod
-    def feature_extractor(clazz, thing, name=None):
-        # if its a dict, recurse
-        if isinstance(thing, collections.abc.Mapping):
-            children = set()
-            for key in sorted(thing.keys()):
-                child = clazz.feature_extractor(thing[key], key)
-                children.add(child)
-            children = frozenset(children)
-            required = frozenset((x.name for x in children))
-            return SchemaNodeDict(name, children, required)
-        # if its a list, iterate
-        # exclude strings because they are iterable by character
-        elif isinstance(thing, collections.abc.Iterable) \
-                and not isinstance(thing, str):
-            children = [clazz.feature_extractor(x) for x in thing]
-            return SchemaNodeArray(name, children)
-        elif isinstance(thing, str):
-            return SchemaNodeLeaf(name, [thing], "string")
-        elif isinstance(thing, bool):
-            return SchemaNodeLeaf(name, [thing], "boolean")
-        elif isinstance(thing, int):
-            return SchemaNodeLeaf(name, [thing], "integer")
-        elif isinstance(thing, numbers.Number):
-            return SchemaNodeLeaf(name, [thing], "number")
-        elif thing is None:
-            return SchemaNodeLeaf(name, [thing], "null")
-        else:
-            # shouldn't get here so raise an exception in case
-            raise ValueError("Unrecognized thing {}".format(thing))
+        root = SchemaNode.discover_class(thing) \
+                .from_json_instance(thing, None)
+        # TODO calculate coocurance matrix
+        return clazz(root)
 
 
 class SchemaNode(object):
@@ -242,6 +214,23 @@ class SchemaNode(object):
 
     def merge(self, other):
         raise NotImplementedError()
+
+    @classmethod
+    def from_json_instance(clazz, obj, name):
+        raise NotImplementedError()
+
+    @classmethod
+    def discover_class(clazz, thing):
+        if isinstance(thing, collections.abc.Mapping):
+            return SchemaNodeDict
+        # if its a list, iterate
+        # exclude strings because they are iterable by character
+        elif isinstance(thing, collections.abc.Iterable) \
+                and not isinstance(thing, str):
+            return SchemaNodeArray
+        else:
+            return SchemaNodeLeaf
+
 
 
 @functools.total_ordering
@@ -306,6 +295,24 @@ class SchemaNodeDict(SchemaNode):
     def __str__(self):
         return 'SchemaNodeDict({}, {}, {})'.format(
             self.name, self.children, self.required)
+            
+    @classmethod
+    def from_json_instance(clazz, thing, name=None):
+        assert isinstance(thing, collections.abc.Mapping)
+        children = set()
+        for key in sorted(thing.keys()):
+            # determine which node type this object should be
+            # represented as, then delegate to that node type to build
+            # an appropriate node
+            child = clazz.discover_class(thing[key]) \
+                    .from_json_instance(thing[key], key)
+            children.add(child)
+        children = frozenset(children)
+        # assume that everything is required to start with
+        # this will be relaxed when merging
+        required = frozenset((x.name for x in children))
+        return SchemaNodeDict(name, children, required)
+
 
     def to_json(self):
         json = {}
@@ -405,6 +412,20 @@ class SchemaNodeArray(SchemaNode):
     def __str__(self):
         return 'SchemaNodeArray({}, {})'.format(
             self.name, self.children)
+            
+    @classmethod
+    def from_json_instance(clazz, thing, name=None):
+        assert isinstance(thing, collections.abc.Iterable)
+        children = []
+        for thing_child in thing:
+            # determine which node type this object should be
+            # represented as, then delegate to that node type to build
+            # an appropriate node
+            child = clazz.discover_class(thing_child) \
+                    .from_json_instance(thing_child, None)
+            children.append(child)
+        children = frozenset(children)
+        return SchemaNodeArray(name, children)
 
     def to_json(self):
         json = {}
@@ -509,6 +530,22 @@ class SchemaNodeLeaf(SchemaNode):
     def __str__(self):
         return 'SchemaNodeLeaf({}, {}, {})'.format(
             self.name, sorted(self.values), self.datatype)
+            
+    @classmethod
+    def from_json_instance(clazz, thing, name=None):
+        if isinstance(thing, str):
+            return SchemaNodeLeaf(name, [thing], "string")
+        elif isinstance(thing, bool):
+            return SchemaNodeLeaf(name, [thing], "boolean")
+        elif isinstance(thing, int):
+            return SchemaNodeLeaf(name, [thing], "integer")
+        elif isinstance(thing, numbers.Number):
+            return SchemaNodeLeaf(name, [thing], "number")
+        elif thing is None:
+            return SchemaNodeLeaf(name, [thing], "null")
+        else:
+            # shouldn't get here so raise an exception in case
+            raise ValueError("Unrecognized thing {}".format(thing))
 
     def to_json(self):
         json = {}
