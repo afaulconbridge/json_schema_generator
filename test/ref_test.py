@@ -2,7 +2,7 @@ import dask.bag
 from json_schema_generator import SchemaNodeLeaf, \
     SchemaNodeDict, Schema, process_to_schema
 
-
+import json
 import random
 
 
@@ -83,3 +83,4 @@ def test_random_content():
     source = [random_content(rng) for i in range(25)]
     schema = process_to_schema(
         dask.bag.from_sequence(source), False)
+    print(json.dumps(schema.to_json(), indent=2, sort_keys=True))
