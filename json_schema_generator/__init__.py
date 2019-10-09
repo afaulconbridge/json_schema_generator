@@ -24,6 +24,7 @@ def process_to_schema(dask_bag, visualize):
 
     # post-process the schema to compute definitions
     schema.infer_references()
+    # TODO infer oneOf
 
     return schema
 
