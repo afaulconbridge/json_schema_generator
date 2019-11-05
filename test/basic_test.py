@@ -81,25 +81,20 @@ def test_equal_array():
 def test_equal_dict():
     a1 = json_schema_generator.SchemaNodeDict("a", (
         json_schema_generator.SchemaNodeLeaf("foo", ["foo"], "string"),
-        json_schema_generator.SchemaNodeLeaf("bar", ["bar"], "string")),
-        ())
+        json_schema_generator.SchemaNodeLeaf("bar", ["bar"], "string")))
     a2 = json_schema_generator.SchemaNodeDict("a", (
         json_schema_generator.SchemaNodeLeaf("foo", ["foo"], "string"),
-        json_schema_generator.SchemaNodeLeaf("bar", ["bar"], "string")),
-        ())
+        json_schema_generator.SchemaNodeLeaf("bar", ["bar"], "string")))
     b = json_schema_generator.SchemaNodeDict("a", (
         json_schema_generator.SchemaNodeLeaf("foo", [1], "integer"),
-        json_schema_generator.SchemaNodeLeaf("bar", [2], "integer")),
-        ())
+        json_schema_generator.SchemaNodeLeaf("bar", [2], "integer")))
     c = json_schema_generator.SchemaNodeDict("b", (
         json_schema_generator.SchemaNodeLeaf("foo", ["foo"], "string"),
-        json_schema_generator.SchemaNodeLeaf("bar", ["bar"], "string")),
-        ())
+        json_schema_generator.SchemaNodeLeaf("bar", ["bar"], "string")))
     d = json_schema_generator.SchemaNodeDict("a", (
         json_schema_generator.SchemaNodeLeaf("foo", ["foo"], "string"),
         json_schema_generator.SchemaNodeLeaf("bar", ["bar"], "string"),
-        json_schema_generator.SchemaNodeLeaf("baz", ["baz"], "string")),
-        ())
+        json_schema_generator.SchemaNodeLeaf("baz", ["baz"], "string")))
 
     assert a1 == a1
     assert a1 == a2
