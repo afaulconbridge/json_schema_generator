@@ -117,7 +117,7 @@ class Schema(object):
             if len(biggest_component) > 1:
                 # take any single node as an example
                 # they should all be the same except for name, so its fine
-                example, *_ = biggest_component
+                example, *remainder = biggest_component
                 # create a new node based on the example with a combined name
                 # ideally this sort of internal-only name should be human
                 # choosable, but not sure how to do that
@@ -141,7 +141,7 @@ class Schema(object):
                         for child in tuple(node.children):
                             if child in biggest_component:
                                 new_children.append(
-                                    SchemaNodeRef(child.name, 
+                                    SchemaNodeRef(child.name,
                                                   definition_name))
                             else:
                                 new_children.append(child)
@@ -151,14 +151,14 @@ class Schema(object):
                         for child in tuple(node.children):
                             if child in biggest_component:
                                 new_children.append(
-                                    SchemaNodeRef(child.name, 
+                                    SchemaNodeRef(child.name,
                                                   definition_name))
                             else:
                                 new_children.append(child)
                         node.children = tuple(new_children)
 
                 changed = True
-    
+
     def merge(self, other):
         if other is None:
             return self
@@ -267,11 +267,12 @@ class CoocuranceMatrix(object):
         return self.coocurances == other.coocurances
 
     def __lt__(self, other):
-        return tuple(sorted(self.coocurances.items())) < tuple(sorted(self.coocurances.items()))
+        return tuple(sorted(self.coocurances.items())) < tuple(
+            sorted(self.coocurances.items()))
 
     def __hash__(self):
         return hash(tuple(sorted(self.coocurances.items())))
-    
+
 
 @functools.total_ordering
 class SchemaNodeDict(SchemaNode):
@@ -279,7 +280,8 @@ class SchemaNodeDict(SchemaNode):
     coocurances = CoocuranceMatrix()
     count = 1
 
-    def __init__(self, name, children=frozenset(), coocurances=CoocuranceMatrix(), count=1):
+    def __init__(self, name, children=frozenset(),
+                 coocurances=CoocuranceMatrix(), count=1):
         super().__init__(name)
         assert isinstance(children, collections.abc.Iterable), \
             "children must be iterable"
@@ -313,22 +315,22 @@ class SchemaNodeDict(SchemaNode):
             return True
         elif self.name > other.name:
             return False
-            
+
         if self.children < other.children:
             return True
         elif self.children > other.children:
             return False
-            
+
         if self.coocurances < other.coocurances:
             return True
         elif self.coocurances > other.coocurances:
             return False
-            
+
         if self.count < other.count:
             return True
         elif self.count > other.count:
             return False
-            
+
         return False
 
     def __hash__(self):
@@ -344,7 +346,7 @@ class SchemaNodeDict(SchemaNode):
     def __str__(self):
         return 'SchemaNodeDict({}, {}, {}, {})'.format(
             self.name, self.children, self.coocurances, self.count)
-            
+
     @classmethod
     def from_json_instance(clazz, thing, name=None):
         assert isinstance(thing, collections.abc.Mapping)
@@ -359,12 +361,12 @@ class SchemaNodeDict(SchemaNode):
         children = frozenset(children)
 
         coocurances = CoocuranceMatrix()
-        for keyA, keyB in itertools.combinations_with_replacement(thing.keys(), 2):
+        for keyA, keyB in itertools.combinations_with_replacement(
+                thing.keys(), 2):
             coocurances.add_coocurance(keyA, keyB)
 
         count = 1
         return SchemaNodeDict(name, children, coocurances, count)
-
 
     def to_json(self):
         json = {}
@@ -373,8 +375,8 @@ class SchemaNodeDict(SchemaNode):
         for child in self.children:
             json["properties"][child.name] = child.to_json()
         # TODO move to using coocurance data
-        #if len(self.required) > 0:
-        #    json["required"] = sorted(self.required)
+        # if len(self.required) > 0:
+        #     json["required"] = sorted(self.required)
         return json
 
     def merge(self, other):
@@ -449,7 +451,7 @@ class SchemaNodeArray(SchemaNode):
             return True
         elif self.name > other.name:
             return False
-            
+
         if self.children < other.children:
             return True
         elif self.children > other.children:
@@ -470,7 +472,7 @@ class SchemaNodeArray(SchemaNode):
     def __str__(self):
         return 'SchemaNodeArray({}, {})'.format(
             self.name, self.children)
-            
+
     @classmethod
     def from_json_instance(clazz, thing, name=None):
         assert isinstance(thing, collections.abc.Iterable)
@@ -588,7 +590,7 @@ class SchemaNodeLeaf(SchemaNode):
     def __str__(self):
         return 'SchemaNodeLeaf({}, {}, {})'.format(
             self.name, sorted(self.values), self.datatype)
-            
+
     @classmethod
     def from_json_instance(clazz, thing, name=None):
         if isinstance(thing, str):
