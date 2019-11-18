@@ -232,33 +232,30 @@ class SchemaNode(object):
             return SchemaNodeLeaf
 
 
+@functools.total_ordering
 class CoocuranceMatrix(object):
-    values = set()
     coocurances = collections.defaultdict(int)
 
-    def __init__(self, values=[], coocurances=collections.defaultdict(int)):
-        assert isinstance(values, collections.abc.Iterable)
+    def __init__(
+            self, 
+            coocurances=collections.defaultdict(int)):
         assert isinstance(coocurances, collections.abc.Mapping)
-        self.values = set(values)
         self.coocurances = collections.defaultdict(int, coocurances)
 
     def merge(self, other):
-        values = self.values.union(other.values)
         coocurances = collections.defaultdict(int, self.coocurances)
         for value in other.coocurances:
             coocurances[value] += other.coocurances[value]
-        return CoocuranceMatrix(values, coocurances)
+        return CoocuranceMatrix(coocurances)
 
-    def add_coocurance(self, thing_a, thing_b):
-        self.values.add(thing_a)
-        self.values.add(thing_b)
-        if thing_b < thing_a:
-            thing_b, thing_a = thing_a, thing_b
-        self.coocurances[(thing_a, thing_b)] += 1
+    def add_coocurances(self, values):
+        for keyA, keyB in itertools.combinations_with_replacement(
+                values, 2):
+            if keyB < keyA:
+                keyB, keyA = keyA, keyB
+            self.coocurances[(keyA, keyB)] += 1
 
     def get_coocurance(self, thing_a, thing_b):
-        assert thing_a in self.values
-        assert thing_b in self.values
         if thing_b < thing_a:
             thing_b, thing_a = thing_a, thing_b
         return self.coocurances[(thing_a, thing_b)]
@@ -272,6 +269,12 @@ class CoocuranceMatrix(object):
 
     def __hash__(self):
         return hash(tuple(sorted(self.coocurances.items())))
+
+    def __repr__(self):
+        return 'CoocuranceMatrix({})'.format(self.coocurances)
+
+    def __str__(self):
+        return 'CoocuranceMatrix({})'.format(self.coocurances)
 
 
 @functools.total_ordering
@@ -289,7 +292,7 @@ class SchemaNodeDict(SchemaNode):
             "coocurances must be CoocuranceMatrix"
         self.children = frozenset(children)
         self.coocurances = coocurances
-        self.cout = count
+        self.count = count
 
     def __eq__(self, other):
         if self is other:
@@ -361,9 +364,7 @@ class SchemaNodeDict(SchemaNode):
         children = frozenset(children)
 
         coocurances = CoocuranceMatrix()
-        for keyA, keyB in itertools.combinations_with_replacement(
-                thing.keys(), 2):
-            coocurances.add_coocurance(keyA, keyB)
+        coocurances.add_coocurances(thing.keys())
 
         count = 1
         return SchemaNodeDict(name, children, coocurances, count)
@@ -374,9 +375,17 @@ class SchemaNodeDict(SchemaNode):
         json["properties"] = {}
         for child in self.children:
             json["properties"][child.name] = child.to_json()
-        # TODO move to using coocurance data
-        # if len(self.required) > 0:
-        #     json["required"] = sorted(self.required)
+
+        # if something has shown up as many times as we have seen json
+        # then it must be required
+
+        for thing_a, thing_b in self.coocurances.coocurances:
+            if thing_a == thing_b:
+                if self.coocurances.get_coocurance(thing_a, thing_a) >= self.count:
+                    if "required" not in json:
+                        json["required"] = []
+                    json["required"].append(thing_a)
+
         return json
 
     def merge(self, other):
@@ -414,9 +423,7 @@ class SchemaNodeDict(SchemaNode):
 
         # things can be marked as required iff they are required in both
         # TODO move to using coocurance data
-        coocurances = CoocuranceMatrix()
-        coocurances = coocurances.merge(self.coocurances)
-        coocurances = coocurances.merge(other.coocurances)
+        coocurances = self.coocurances.merge(other.coocurances)
 
         count = self.count+other.count
 
@@ -671,6 +678,7 @@ class SchemaNodeLeaf(SchemaNode):
         return SchemaNodeLeaf(self.name, child_values, child_datatype)
 
 
+@functools.total_ordering
 class SchemaNodeRef(SchemaNode):
     def __init__(self, name, ref):
         super().__init__(name)
