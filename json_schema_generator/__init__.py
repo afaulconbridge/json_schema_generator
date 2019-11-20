@@ -1,5 +1,6 @@
 import argparse
 
+# TODO handle multiple improved json handling libraries
 import simplejson as json
 import dask
 import dask.bag

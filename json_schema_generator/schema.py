@@ -117,7 +117,7 @@ class Schema(object):
             if len(biggest_component) > 1:
                 # take any single node as an example
                 # they should all be the same except for name, so its fine
-                example, *remainder = biggest_component
+                example, *_ = biggest_component
                 # create a new node based on the example with a combined name
                 # ideally this sort of internal-only name should be human
                 # choosable, but not sure how to do that
@@ -369,6 +369,51 @@ class SchemaNodeDict(SchemaNode):
         count = 1
         return SchemaNodeDict(name, children, coocurances, count)
 
+    def find_coocurances(self):
+        # TODO this can be made more efficient
+        # find a set of values that have the same count with themselves and each other
+        values = set()
+        for value_a, value_b in self.coocurances.coocurances:
+            values.add(value_a)
+            values.add(value_b)
+        values = sorted(values)
+
+        combos = []
+
+        for size in range(len(values)-1, 1, -1):
+            for combo in itertools.combinations(values, size):
+                combo = set(combo)
+                candidate_combo = True
+
+                # check this combo isn't a subset of already approved combos
+                for other_combo in combos:
+                    if combo.issubset(other_combo):
+                        candidate_combo = False
+                        break
+                if not candidate_combo:
+                    continue
+
+                # get the self of the first member
+                first = list(combo)[0]
+                count = self.coocurances.get_coocurance(first, first)
+
+                # only do this with 10+ appearances
+                # TODO make this customizable
+                if count < 10:
+                    continue
+
+                for a, b in itertools.combinations_with_replacement(combo, 2):
+                    # this might be higher because we picked the first to
+                    # get the count of. in any case, this combo is invalid
+                    if self.coocurances.get_coocurance(a, b) != count:
+                        candidate_combo = False
+                        break
+                if not candidate_combo:
+                    continue
+                combos.append(sorted(combo))
+
+        return combos
+
     def to_json(self):
         json = {}
         json["type"] = "object"
@@ -378,13 +423,38 @@ class SchemaNodeDict(SchemaNode):
 
         # if something has shown up as many times as we have seen json
         # then it must be required
-
         for thing_a, thing_b in self.coocurances.coocurances:
             if thing_a == thing_b:
                 if self.coocurances.get_coocurance(thing_a, thing_a) >= self.count:
                     if "required" not in json:
                         json["required"] = []
                     json["required"].append(thing_a)
+
+        # if a set of things co-occur then mark it as optional
+        for coocurance in self.find_coocurances():
+            if "allOf" not in json:
+                json["allOf"] = []
+            oneOf = []
+            oneOf.append({"required": coocurance})
+
+            inverse_cooc = {}
+            inverse_cooc["not"] = {}
+            inverse_cooc["not"]["anyOf"] = []
+            for value in coocurance:
+                inverse_cooc["not"]["anyOf"].append({"required": (value,)})
+            oneOf.append(inverse_cooc)
+
+            json["allOf"].append({"oneOf": oneOf})
+
+        # if there is an allOf with only one child then remove it
+        if "allOf" in json and len(json["allOf"]) == 0:
+            del json["allOf"]
+        elif "allOf" in json and len(json["allOf"]) == 1:
+            allOf = json["allOf"][0]
+            for key in allOf:
+                assert key not in json
+                json[key] = allOf[key]
+            del json["allOf"]
 
         return json
 
