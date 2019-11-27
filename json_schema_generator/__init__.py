@@ -52,7 +52,7 @@ def main():
     parser.add_argument("--blocksize", action="store", default=None, type=str,
                         help="Size of blocks of input e.g. 128MiB")
     parser.add_argument("--workers", action="store", default="1", type=int,
-                        help="Number of processess to use")
+                        help="Number of processess to use, >1 with Dask")
     parser.add_argument("--visualize", action="store", default=None, type=str,
                         help="Flag if compute graph should be displayed")
     args = parser.parse_args()
