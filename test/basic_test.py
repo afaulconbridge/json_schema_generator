@@ -1,10 +1,9 @@
-import dask.bag
 import simplejson as json
 import json_schema_generator
 
 
 def test_types():
-    items = dask.bag.from_sequence([{
+    items = [{
             "a": True,
             "b": "Hello world", 
             "c": 1, 
@@ -12,8 +11,8 @@ def test_types():
             "e": None,
             "f": [],
             "g": {}
-        }])
-    schema = json_schema_generator.process_to_schema(items, False).to_json()
+        }]
+    schema = json_schema_generator.process_to_schema(items).to_json()
     print(json.dumps(schema, indent=2, sort_keys=True))
     assert schema["properties"]["a"]["type"] == "boolean"
     assert schema["properties"]["b"]["type"] == "string"
@@ -111,7 +110,7 @@ def test_equal_dict():
 
 
 def test_combining_types():
-    items = dask.bag.from_sequence([{
+    items = [{
             "a": True,
             "b": "Hello world", 
             "c": 1, 
@@ -123,8 +122,8 @@ def test_combining_types():
             "d": 1, 
             "e": 1.5,
             "a": None,
-        }])
-    schema = json_schema_generator.process_to_schema(items, False).to_json()
+        }]
+    schema = json_schema_generator.process_to_schema(items).to_json()
     print(json.dumps(schema, indent=2, sort_keys=True))
     # because we are mixing types there cannot be any type validation
     assert "type" not in schema["properties"]["a"]
@@ -135,12 +134,12 @@ def test_combining_types():
 
 
 def test_enum():
-    items = dask.bag.from_sequence([{
+    items = [{
             "a": "alpha"
         }, {
             "a": "ah"
-        }])
-    schema = json_schema_generator.process_to_schema(items, False).to_json()
+        }]
+    schema = json_schema_generator.process_to_schema(items).to_json()
     print(json.dumps(schema, indent=2, sort_keys=True))
     assert schema["properties"]["a"]["type"] == "string"
     assert "enum" in schema["properties"]["a"]
@@ -148,12 +147,12 @@ def test_enum():
 
 
 def test_const():
-    items = dask.bag.from_sequence([{
+    items = [{
             "a": "alpha"
         }, {
             "a": "alpha"
-        }])
-    schema = json_schema_generator.process_to_schema(items, False).to_json()
+        }]
+    schema = json_schema_generator.process_to_schema(items).to_json()
     print(json.dumps(schema, indent=2, sort_keys=True))
     assert schema["properties"]["a"]["type"] == "string"
     assert schema["properties"]["a"]["const"] == "alpha"

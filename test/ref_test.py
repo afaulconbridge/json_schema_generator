@@ -81,6 +81,5 @@ def test_random_content():
     # create some content
     rng = random.Random(42)
     source = [random_content(rng) for i in range(25)]
-    schema = process_to_schema(
-        dask.bag.from_sequence(source), False)
+    schema = process_to_schema(source)
     print(json.dumps(schema.to_json(), indent=2, sort_keys=True))
