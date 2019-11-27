@@ -582,7 +582,8 @@ class SchemaNodeLeaf(SchemaNode):
     def merge(self, other):
         if other is None:
             return self
-        assert isinstance(other, SchemaNodeLeaf)
+        assert isinstance(other, SchemaNodeLeaf), \
+            "{} must be SchemaNodeLeaf".format(other.name)
         assert self.name == other.name
 
         if other.datatype != self.datatype:
@@ -596,12 +597,16 @@ class SchemaNodeLeaf(SchemaNode):
         else:
             child_values = set()
             for value in self.values:
-                if isinstance(value, str):
-                    assert len(value) > 0
+                #if isinstance(value, str):
+                #    assert len(value) > 0, \
+                #        "found a zero-length key in {}".format(self.name)
+                # TODO warn for zero-length keys
                 child_values.add(value)
             for value in other.values:
-                if isinstance(value, str):
-                    assert len(value) > 0
+                #if isinstance(value, str):
+                #    assert len(value) > 0, \
+                #        "found a zero-length key in {}".format(other.name)
+                # TODO warn for zero-length keys
                 child_values.add(value)
 
             # if we now have too many different values, don't be enum
