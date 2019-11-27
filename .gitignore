@@ -5,3 +5,4 @@ venv
 dask-worker-space
 **.json
 **.png
+.coverage*
