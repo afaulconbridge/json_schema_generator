@@ -5,8 +5,8 @@ import json_schema_generator
 def test_types():
     items = [{
             "a": True,
-            "b": "Hello world", 
-            "c": 1, 
+            "b": "Hello world",
+            "c": 1,
             "d": 1.5,
             "e": None,
             "f": [],
@@ -112,14 +112,14 @@ def test_equal_dict():
 def test_combining_types():
     items = [{
             "a": True,
-            "b": "Hello world", 
-            "c": 1, 
+            "b": "Hello world",
+            "c": 1,
             "d": 1.5,
             "e": None,
         }, {
             "b": True,
-            "c": "Hello world", 
-            "d": 1, 
+            "c": "Hello world",
+            "d": 1,
             "e": 1.5,
             "a": None,
         }]

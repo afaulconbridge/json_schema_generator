@@ -1,4 +1,3 @@
-
 import collections
 import numbers
 import copy
@@ -141,7 +140,7 @@ class Schema(object):
                         for child in tuple(node.children):
                             if child in biggest_component:
                                 new_children.append(
-                                    SchemaNodeRef(child.name, 
+                                    SchemaNodeRef(child.name,
                                                   definition_name))
                             else:
                                 new_children.append(child)
@@ -151,14 +150,14 @@ class Schema(object):
                         for child in tuple(node.children):
                             if child in biggest_component:
                                 new_children.append(
-                                    SchemaNodeRef(child.name, 
+                                    SchemaNodeRef(child.name,
                                                   definition_name))
                             else:
                                 new_children.append(child)
                         node.children = tuple(new_children)
 
                 changed = True
-    
+
     def merge(self, other):
         if other is None:
             return self
@@ -232,7 +231,6 @@ class SchemaNode(object):
             return SchemaNodeLeaf
 
 
-
 @functools.total_ordering
 class SchemaNodeDict(SchemaNode):
     children = frozenset()
@@ -269,17 +267,17 @@ class SchemaNodeDict(SchemaNode):
             return True
         elif self.name > other.name:
             return False
-            
+
         if self.children < other.children:
             return True
         elif self.children > other.children:
             return False
-            
+
         if self.required < other.required:
             return True
         elif self.required > other.required:
             return False
-            
+
         return False
 
     def __hash__(self):
@@ -295,7 +293,7 @@ class SchemaNodeDict(SchemaNode):
     def __str__(self):
         return 'SchemaNodeDict({}, {}, {})'.format(
             self.name, self.children, self.required)
-            
+
     @classmethod
     def from_json_instance(clazz, thing, name=None):
         assert isinstance(thing, collections.abc.Mapping)
@@ -312,7 +310,6 @@ class SchemaNodeDict(SchemaNode):
         # this will be relaxed when merging
         required = frozenset((x.name for x in children))
         return SchemaNodeDict(name, children, required)
-
 
     def to_json(self):
         json = {}
@@ -391,7 +388,7 @@ class SchemaNodeArray(SchemaNode):
             return True
         elif self.name > other.name:
             return False
-            
+
         if self.children < other.children:
             return True
         elif self.children > other.children:
@@ -412,7 +409,7 @@ class SchemaNodeArray(SchemaNode):
     def __str__(self):
         return 'SchemaNodeArray({}, {})'.format(
             self.name, self.children)
-            
+
     @classmethod
     def from_json_instance(clazz, thing, name=None):
         assert isinstance(thing, collections.abc.Iterable)
@@ -530,7 +527,7 @@ class SchemaNodeLeaf(SchemaNode):
     def __str__(self):
         return 'SchemaNodeLeaf({}, {}, {})'.format(
             self.name, sorted(self.values), self.datatype)
-            
+
     @classmethod
     def from_json_instance(clazz, thing, name=None):
         if isinstance(thing, str):
@@ -597,15 +594,9 @@ class SchemaNodeLeaf(SchemaNode):
         else:
             child_values = set()
             for value in self.values:
-                #if isinstance(value, str):
-                #    assert len(value) > 0, \
-                #        "found a zero-length key in {}".format(self.name)
                 # TODO warn for zero-length keys
                 child_values.add(value)
             for value in other.values:
-                #if isinstance(value, str):
-                #    assert len(value) > 0, \
-                #        "found a zero-length key in {}".format(other.name)
                 # TODO warn for zero-length keys
                 child_values.add(value)
 

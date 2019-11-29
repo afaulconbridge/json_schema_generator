@@ -1,4 +1,3 @@
-import dask.bag
 from json_schema_generator import SchemaNodeLeaf, \
     SchemaNodeDict, Schema, process_to_schema
 
@@ -55,7 +54,7 @@ def test_infer_refs():
 def test_random_content():
     street_prefix = ("High", "Station", "Hill", "Owl", "Badger", "Civit")
     street_suffix = ("Street", "Lane", "Drive", "Road")
-    names = ("Alice", "Bob", "Carol", "David", "Emma", "Fred",  
+    names = ("Alice", "Bob", "Carol", "David", "Emma", "Fred",
              "Gini", "Harry", "Irene", "John")
 
     def random_address(rng):

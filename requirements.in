@@ -1,7 +1,0 @@
-# dot requirement is for visualization only
-dask[bag,distributed,dot]
-simplejson
-
-#dev requirements
-pytool
-pytest-cov

@@ -1,7 +1,5 @@
 import argparse
 import functools
-import itertools
-import contextlib
 import fileinput
 
 import simplejson as json
@@ -10,8 +8,9 @@ import dask.bag
 from dask.distributed import Client, LocalCluster
 
 # import everything so it is re-exported
-from .schema import Schema, SchemaNode, SchemaNodeArray, SchemaNodeDict, \
-    SchemaNodeLeaf, SchemaNodeRef
+from .schema import Schema, SchemaNode  # noqa: F401
+from .schema import SchemaNodeArray, SchemaNodeDict  # noqa: F401
+from .schema import SchemaNodeLeaf, SchemaNodeRef  # noqa: F401
 
 
 def process_to_schema(items):
@@ -28,7 +27,8 @@ def process_to_schema_dask(dask_bag, visualize):
               initial=Schema(None))
     if visualize:
         # import this here, so if not used we don't need the requirements
-        from dask.dot import dot_graph
+        # flake8 - works by side effect
+        from dask.dot import dot_graph  # noqa: F401
         dask_bag.visualize(visualize)
 
     # this will block until complete
@@ -46,8 +46,9 @@ def process_to_json_dask(dask_bag, visualize):
 
 def main():
     parser = argparse.ArgumentParser(description='JSON schema from JSON lines')
-    parser.add_argument("output", help="optional filename to write to, - for stdout")
-    parser.add_argument("input", nargs='+', 
+    parser.add_argument("output",
+                        help="optional filename to write to, - for stdout")
+    parser.add_argument("input", nargs='+',
                         help="one or more JSON lines filenames")
     parser.add_argument("--blocksize", action="store", default=None, type=str,
                         help="Size of blocks of input e.g. 128MiB")
@@ -62,7 +63,8 @@ def main():
         # here the client registers itself as the default within Dask
         # TODO explicitly call the client
         # TODO explicitly allow client to be passed
-        client = Client(cluster)
+        # flake8 - this works by side effect
+        client = Client(cluster)  # noqa: F841
         cluster.scale(args.workers)
 
         items = dask.bag.read_text(args.input, blocksize=args.blocksize)\

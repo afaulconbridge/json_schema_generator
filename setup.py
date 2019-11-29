@@ -12,9 +12,21 @@ setup(
         "dask[bag,distributed]"
     ],
     extras_require={
-        'visualization':  ["dask[dot]"]
+        'visualization':  [
+            "dask[dot]"
+        ],
+        'dev': [
+            'pytest-cov',
+            'flake8',
+            'pylint',
+            'pip-tools',
+            'pipdeptree',
+            'pre-commit'
+        ]
     },
     entry_points={
-        'console_scripts': ['json_schema_generator=json_schema_generator:main'],
+        'console_scripts': [
+            'json_schema_generator=json_schema_generator:main'
+        ]
     },
 )
