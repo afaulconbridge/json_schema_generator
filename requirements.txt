@@ -23,7 +23,7 @@ packaging==19.2           # via pytest
 partd==1.0.0              # via dask
 pluggy==0.13.0            # via pytest
 psutil==5.6.3             # via distributed
-py==1.8.0                 # via pytest
+py==1.10.0                 # via pytest
 pyparsing==2.4.2          # via packaging
 pytest-cov==2.8.1
 pytest==5.2.1             # via pytest-cov
