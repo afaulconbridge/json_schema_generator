@@ -18,7 +18,7 @@ importlib-metadata==0.23  # via pluggy, pytest
 locket==0.2.0             # via partd
 more-itertools==7.2.0     # via pytest, zipp
 msgpack==0.6.1            # via distributed
-numpy==1.17.2             # via pytools
+numpy==1.22.0             # via pytools
 packaging==19.2           # via pytest
 partd==1.0.0              # via dask
 pluggy==0.13.0            # via pytest
