@@ -12,7 +12,7 @@ cloudpickle==1.2.1        # via dask, distributed
 coverage==4.5.4           # via pytest-cov
 dask[bag,distributed,dot]==2.1.0
 decorator==4.4.0          # via pytools
-distributed==2.1.0        # via dask
+distributed==2021.10.0        # via dask
 heapdict==1.0.0           # via zict
 importlib-metadata==0.23  # via pluggy, pytest
 locket==0.2.0             # via partd
